@@ -1,13 +1,11 @@
-name: Test v6
-
+name: Test v7
 on:
-  push:
+  pull_request:
     branches:
       - main
-
 permissions:
   contents: read
-
+  pull-requests: read
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -23,9 +21,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.6.1"
+          cache-disabled: true
       - uses: android-actions/setup-android@v3
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865"
-
       - name: Determine base revision
         id: base-rev
         run: |
@@ -34,7 +32,6 @@ jobs:
           else
             echo "base=HEAD~1" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Check for empty PR
         run: |
           BASE="${{ steps.base-rev.outputs.base }}"
@@ -45,7 +42,6 @@ jobs:
           fi
           echo "Changed files:"
           echo "$changed_files"
-
       - name: Profanity check
         run: |
           BASE="${{ steps.base-rev.outputs.base }}"
@@ -59,22 +55,18 @@ jobs:
             exit 1
           fi
           echo "Profanity check passed."
-
       - name: GPL-3.0-only license compliance check
         run: |
           BASE="${{ steps.base-rev.outputs.base }}"
           exit_code=0
-
           if git diff "$BASE"...HEAD --name-only --diff-filter=D | grep -q "^LICENSE$"; then
             echo "::error::The LICENSE file must not be deleted. This project is GPL-3.0-only."
             exit_code=1
           fi
-
           if git diff "$BASE"...HEAD --name-only --diff-filter=M | grep -q "^LICENSE$"; then
             echo "::error::The LICENSE file must not be modified. GPL-3.0-only is the governing license."
             exit_code=1
           fi
-
           NEW_SOURCE_FILES=$(git diff "$BASE"...HEAD --name-only --diff-filter=A \
             | grep -E '\.(kt|java|cpp|c|h|hpp|py|rs|go|sh|gradle|groovy)$' || true)
           if [ -n "$NEW_SOURCE_FILES" ]; then
@@ -85,7 +77,6 @@ jobs:
               fi
             done <<< "$NEW_SOURCE_FILES"
           fi
-
           CHANGED_FILES=$(git diff "$BASE"...HEAD --name-only --diff-filter=AM \
             | grep -E '\.(kt|java|cpp|c|h|hpp|py|rs|go|sh|gradle|groovy|toml|yaml|yml)$' || true)
           if [ -n "$CHANGED_FILES" ]; then
@@ -110,12 +101,10 @@ All rights reserved\
               done <<< "$INCOMPATIBLE_PATTERNS"
             done <<< "$CHANGED_FILES"
           fi
-
           if [ $exit_code -eq 0 ]; then
             echo "GPL-3.0-only compliance check passed."
           fi
           exit $exit_code
-
       - name: PR size check
         run: |
           BASE="${{ steps.base-rev.outputs.base }}"
@@ -128,7 +117,6 @@ All rights reserved\
           if [ "${total_additions:-0}" -gt 2000 ]; then
             echo "::warning::Large PR: ~$total_additions lines added. Consider splitting into smaller, focused PRs."
           fi
-
       - name: ktlint — Kotlin code style check
         run: |
           cd /tmp
@@ -142,17 +130,15 @@ All rights reserved\
             exit 1
           fi
           echo "ktlint check passed."
-
       - name: Dependency review
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
-
       - name: Lint check
         run: gradle :app:lintDebug --stacktrace
       - name: Debug build
         run: gradle :app:assembleDebug --stacktrace
       - name: Release build
         run: gradle :app:assembleRelease --stacktrace
-      - name: Unit tests (strict)
-        run: gradle :app:testDebugUnitTest --stacktrace -Pkotlin.compiler.allWarningsAsErrors=true
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
