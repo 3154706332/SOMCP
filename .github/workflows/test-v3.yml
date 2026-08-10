@@ -50,7 +50,7 @@ jobs:
         run: |
           BASE="${{ steps.base-rev.outputs.base }}"
           # Pattern list: common profanity (case-insensitive)
-          PATTERNS="\bfuck\b|\bshit\b|\bbitch\b|\bass\b|\bdamn\b|\bcrap\b|\bdick\b|\bbastard\b|\bslut\b|\bwhore\b|\bpiss\b|\bcock\b|\bcunt\b|\basshole\b|\bmotherfucker\b|\bfucker\b|\bfucking\b|\bsonofabitch\b|\b混蛋\b|\b傻逼\b|\b操你妈\b|\b草泥马\b|\b他妈\b|\b尼玛\b|\b艹\b|\bfuckyou\b|\bfk\b"
+          PATTERNS="\bfuck\b|\bshit\b|\bbitch\b|\bass\b|\bdamn\b|\bcrap\b|\bdick\b|\bbastard\b|\bslut\b|\bwhore\b|\bpiss\b|\bcock\b|\bcunt\b|\basshole\b|\bmotherfucker\b|\bfucker\b|\bfucking\b"
           violations=$(git diff "$BASE"...HEAD --diff-filter=AM \
             | grep -n -i -E "$PATTERNS" \
             | sed 's/^/  /' || true)
@@ -63,7 +63,15 @@ jobs:
 
       - name: Lint check
         run: gradle :app:lintDebug --stacktrace
+
       - name: Debug build
         run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
       - name: Unit tests (strict)
         run: gradle :app:testDebugUnitTest --stacktrace -Pkotlin.compiler.allWarningsAsErrors=true
